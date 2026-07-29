@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ぬいぐるみタワー 🧸</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            pointer-events: none;
+            z-index: 10;
+            width: 100%;
+        }
+        h1 {
+            margin: 0;
+            color: #ff6b6b;
+            font-size: 28px;
+            text-shadow: 2px 2px 0px white;
+        }
+        p {
+            margin: 5px 0;
+            color: #4a4a4a;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        #message-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px 40px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            text-align: center;
+            display: none;
+            z-index: 100;
+            min-width: 280px;
+        }
+        #message-modal h2 {
+            margin-top: 0;
+            font-size: 32px;
+        }
+        #message-modal button {
+            padding: 12px 28px;
+            font-size: 18px;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(255,107,107,0.4);
+            transition: transform 0.1s;
+        }
+        #message-modal button:active {
+            transform: scale(0.95);
+        }
+    </style>
+    <!-- 物理エンジン Matter.js の読み込み -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+</head>
+<body>
+
+    <div id="ui">
+        <h1>🧸 ぬいぐるみタワー 🐶</h1>
+        <p>画面をタップ／クリックで落とす！</p>
+        <p>赤い点線（ゴール）まで積めたらクリア！</p>
+    </div>
+
+    <div id="message-modal">
+        <h2 id="modal-title">CLEAR!</h2>
+        <p id="modal-desc">おめでとう！見事に積み上がりました！</p>
+        <button onclick="resetGame()">もう一度あそぶ</button>
+    </div>
+
+    <script>
+        const { Engine, Render, Runner, Bodies, Composite, Events } = Matter;
+
+        // 画面サイズの設定
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+
+        // 物理エンジンの初期化
+        const engine = Engine.create();
+        const world = engine.world;
+
+        const render = Render.create({
+            element: document.body,
+            engine: engine,
+            options: {
+                width: width,
+                height: height,
+                wireframes: false,
+                background: 'transparent'
+            }
+        });
+
+        Render.run(render);
+        const runner = Runner.create();
+        Runner.run(runner, engine);
+
+        // 使用するぬいぐるみの絵文字リスト
+        const EMOJIS = ['🧸', '🐶', '🐱', '🐰', '🦁', '🐻', '🐼', '🦊', '🐨', '🐯', '👧', '👦'];
+        
+        // ゲームの設定値
+        const BASE_Y = height - 100;
+        const TARGET_Y = 180; // クリア目標の高さ
+        let currentEmoji = EMOJIS[0];
+        let dropX = width / 2;
+        let dropSpeed = 3;
+        let dropDirection = 1;
+        let dropY = 120;
+
+        let isGameOver = false;
+        let isGameClear = false;
+        let activePlushies = [];
+
+        // 土台（台座）の作成
+        const ground = Bodies.rectangle(width / 2, BASE_Y, 220, 30, {
+            isStatic: true,
+            render: { fillStyle: '#8d6e63' }
+        });
+        Composite.add(world, ground);
+
+        // 左右にゆらゆら動く処理
+        function updateDropPosition() {
+            if (isGameOver || isGameClear) return;
+            dropX += dropSpeed * dropDirection;
+            const limit = Math.min(width / 2 - 40, 160);
+            if (dropX > width / 2 + limit) dropDirection = -1;
+            if (dropX < width / 2 - limit) dropDirection = 1;
+        }
+
+        // ぬいぐるみを落とす処理
+        function dropPlushie() {
+            if (isGameOver || isGameClear) return;
+
+            // ぬいぐるみごとのサイズ設定
+            const radius = 28 + Math.random() * 8;
+            
+            // 円形の摩擦・反発（ぬぐるみっぽく弾みにくく滑りにくい設定）
+            const plushie = Bodies.circle(dropX, dropY, radius, {
+                restitution: 0.15, // 弾み具合
+                friction: 0.8,     // 摩擦
+                density: 0.002
+            });
+
+            plushie.customEmoji = currentEmoji;
+            plushie.customRadius = radius;
+
+            Composite.add(world, plushie);
+            activePlushies.push(plushie);
+
+            // 次のぬいぐるみをランダム決定
+            currentEmoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+        }
+
+        // タップ / クリックイベント
+        window.addEventListener('pointerdown', (e) => {
+            if (e.target.tagName === 'BUTTON') return;
+            dropPlushie();
+        });
+
+        // 描画イベント（描画のオーバーレイ）
+        Events.on(render, 'afterRender', () => {
+            const ctx = render.context;
+
+            // 1. ゴールラインの描画
+            ctx.save();
+            ctx.setLineDash([8, 8]);
+            ctx.strokeStyle = '#ff4757';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, TARGET_Y);
+            ctx.lineTo(width, TARGET_Y);
+            ctx.stroke();
+
+            ctx.fillStyle = '#ff4757';
+            ctx.font = 'bold 15px sans-serif';
+            ctx.fillText('🏁 ゴールライン', 15, TARGET_Y - 10);
+            ctx.restore();
+
+            // 2. 落下前のプレビュー表示
+            if (!isGameOver && !isGameClear) {
+                ctx.save();
+                ctx.font = '45px serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(currentEmoji, dropX, dropY);
+
+                // 落下ガイド線
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.setLineDash([4, 4]);
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(dropX, dropY + 25);
+                ctx.lineTo(dropX, height);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // 3. 積まれたぬいぐるみの描画（物理ボディに合わせて回転・移動）
+            activePlushies.forEach(body => {
+                const { x, y } = body.position;
+                const angle = body.angle;
+                const radius = body.customRadius || 30;
+
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.rotate(angle);
+                ctx.font = `${radius * 1.7}px serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(body.customEmoji, 0, 0);
+                ctx.restore();
+            });
+        });
+
+        // ゲーム判定ルーチン
+        Events.on(engine, 'beforeUpdate', () => {
+            updateDropPosition();
+
+            if (isGameOver || isGameClear) return;
+
+            // 【ゲームオーバー判定】画面下に落ちたら判定
+            activePlushies.forEach(p => {
+                if (p.position.y > height + 50) {
+                    endGame(false);
+                }
+            });
+
+            // 【クリア判定】ぬいぐるみの頂点がゴールラインを超えていて、かつ静止に近い状態
+            activePlushies.forEach(p => {
+                const topY = p.position.y - p.customRadius;
+                if (topY <= TARGET_Y && Math.abs(p.velocity.y) < 0.2) {
+                    endGame(true);
+                }
+            });
+        });
+
+        // 終了処理
+        function endGame(clear) {
+            const modal = document.getElementById('message-modal');
+            const title = document.getElementById('modal-title');
+            const desc = document.getElementById('modal-desc');
+
+            if (clear) {
+                isGameClear = true;
+                title.innerText = '🎉 クリア！ 🎉';
+                title.style.color = '#2ed573';
+                desc.innerText = 'すごーい！頂上までぬいぐるみを積み上げました！';
+            } else {
+                isGameOver = true;
+                title.innerText = '💥 GAME OVER';
+                title.style.color = '#ff4757';
+                desc.innerText = 'あーっと！ぬいぐるみが落ちてしまいました…！';
+            }
+            modal.style.display = 'block';
+        }
+
+        // リセット処理
+        function resetGame() {
+            activePlushies.forEach(p => Composite.remove(world, p));
+            activePlushies = [];
+
+            isGameOver = false;
+            isGameClear = false;
+
+            document.getElementById('message-modal').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
