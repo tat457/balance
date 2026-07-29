@@ -118,47 +118,51 @@
             return img;
         }
 
-        // ぬいぐるみデータの定義（体＋顔のSVGと物理複合ボディ）
+        // 共通の物理特性生成関数（勢いを殺して重みと摩擦を出す設定）
+        function createPlushieBody(x, y, scale) {
+            const head = Bodies.circle(x, y - 15 * scale, 20 * scale);
+            const bodyRect = Bodies.rectangle(x, y + 10 * scale, 40 * scale, 42 * scale, { chamfer: { radius: 10 * scale } });
+
+            const composite = Body.create({
+                parts: [head, bodyRect],
+                restitution: 0.0,      // バウンド・弾みを完全になくす
+                friction: 1.0,         // 摩擦を最大化
+                frictionStatic: 10.0,  // 静止摩擦を強力に（ズリズリ滑らない）
+                frictionAir: 0.06,     // 空気抵抗（ぶつかったときの飛ぶ速度に速攻でブレーキがかかる）
+                density: 0.003
+            });
+
+            // 回転慣性を大きめにしてコロンコロン転がりすぎるのを防ぐ
+            Body.setInertia(composite, composite.inertia * 3.5);
+
+            return composite;
+        }
+
+        // ぬいぐるみデータの定義
         const PLUSHIE_DATA = {
             bear: {
                 color: '#8d6e63', face: '🐻',
                 svg: `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="130" viewBox="0 0 100 130"><rect x="15" y="45" width="70" height="75" rx="20" fill="#8d6e63" stroke="#5d4037" stroke-width="3"/><circle cx="50" cy="40" r="35" fill="#8d6e63" stroke="#5d4037" stroke-width="3"/><circle cx="20" cy="15" r="12" fill="#8d6e63" stroke="#5d4037" stroke-width="3"/><circle cx="80" cy="15" r="12" fill="#8d6e63" stroke="#5d4037" stroke-width="3"/><text x="50" y="52" font-size="42" text-anchor="middle" dominant-baseline="middle">🐻</text></svg>`,
                 image: null, width: 60, height: 78,
-                createBody: (x, y, scale) => {
-                    const head = Bodies.circle(x, y - 15 * scale, 20 * scale);
-                    const bodyRect = Bodies.rectangle(x, y + 10 * scale, 40 * scale, 42 * scale, { chamfer: { radius: 10 * scale } });
-                    return Body.create({ parts: [head, bodyRect], restitution: 0.1, friction: 0.9, density: 0.002 });
-                }
+                createBody: createPlushieBody
             },
             bunny: {
                 color: '#f8bbd0', face: '🐰',
                 svg: `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="130" viewBox="0 0 100 130"><rect x="15" y="45" width="70" height="75" rx="20" fill="#f8bbd0" stroke="#c2185b" stroke-width="3"/><circle cx="50" cy="40" r="35" fill="#f8bbd0" stroke="#c2185b" stroke-width="3"/><ellipse cx="25" cy="12" rx="10" ry="22" fill="#f8bbd0" stroke="#c2185b" stroke-width="3"/><ellipse cx="75" cy="12" rx="10" ry="22" fill="#f8bbd0" stroke="#c2185b" stroke-width="3"/><text x="50" y="52" font-size="42" text-anchor="middle" dominant-baseline="middle">🐰</text></svg>`,
                 image: null, width: 60, height: 78,
-                createBody: (x, y, scale) => {
-                    const head = Bodies.circle(x, y - 15 * scale, 20 * scale);
-                    const bodyRect = Bodies.rectangle(x, y + 10 * scale, 40 * scale, 42 * scale, { chamfer: { radius: 10 * scale } });
-                    return Body.create({ parts: [head, bodyRect], restitution: 0.1, friction: 0.9, density: 0.002 });
-                }
+                createBody: createPlushieBody
             },
             cat: {
                 color: '#ffcc80', face: '🐱',
                 svg: `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="130" viewBox="0 0 100 130"><rect x="15" y="45" width="70" height="75" rx="20" fill="#ffcc80" stroke="#e65100" stroke-width="3"/><circle cx="50" cy="40" r="35" fill="#ffcc80" stroke="#e65100" stroke-width="3"/><polygon points="18,10 38,22 22,38" fill="#ffcc80" stroke="#e65100" stroke-width="3"/><polygon points="82,10 62,22 78,38" fill="#ffcc80" stroke="#e65100" stroke-width="3"/><text x="50" y="52" font-size="42" text-anchor="middle" dominant-baseline="middle">🐱</text></svg>`,
                 image: null, width: 60, height: 78,
-                createBody: (x, y, scale) => {
-                    const head = Bodies.circle(x, y - 15 * scale, 20 * scale);
-                    const bodyRect = Bodies.rectangle(x, y + 10 * scale, 40 * scale, 42 * scale, { chamfer: { radius: 10 * scale } });
-                    return Body.create({ parts: [head, bodyRect], restitution: 0.1, friction: 0.9, density: 0.002 });
-                }
+                createBody: createPlushieBody
             },
             dog: {
                 color: '#e0e0e0', face: '🐶',
                 svg: `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="130" viewBox="0 0 100 130"><rect x="15" y="45" width="70" height="75" rx="20" fill="#e0e0e0" stroke="#616161" stroke-width="3"/><circle cx="50" cy="40" r="35" fill="#e0e0e0" stroke="#616161" stroke-width="3"/><ellipse cx="18" cy="30" rx="10" ry="20" fill="#757575" stroke="#616161" stroke-width="2"/><ellipse cx="82" cy="30" rx="10" ry="20" fill="#757575" stroke="#616161" stroke-width="2"/><text x="50" y="52" font-size="42" text-anchor="middle" dominant-baseline="middle">🐶</text></svg>`,
                 image: null, width: 60, height: 78,
-                createBody: (x, y, scale) => {
-                    const head = Bodies.circle(x, y - 15 * scale, 20 * scale);
-                    const bodyRect = Bodies.rectangle(x, y + 10 * scale, 40 * scale, 42 * scale, { chamfer: { radius: 10 * scale } });
-                    return Body.create({ parts: [head, bodyRect], restitution: 0.1, friction: 0.9, density: 0.002 });
-                }
+                createBody: createPlushieBody
             }
         };
 
@@ -183,9 +187,11 @@
         let activePlushies = [];
         let clearTimer = 0;
 
-        // 土台（台座）の作成
+        // 土台（台座）の作成（台座も摩擦を強力に設定）
         const ground = Bodies.rectangle(width / 2, BASE_Y, 220, 30, {
             isStatic: true,
+            friction: 1.0,
+            frictionStatic: 10.0,
             render: { fillStyle: '#8d6e63' }
         });
         Composite.add(world, ground);
@@ -300,7 +306,7 @@
 
             activePlushies.forEach(p => {
                 const timeSinceSpawn = now - p.customData.spawnTime;
-                const topY = p.bounds.min.y; // ぬいぐるみ全体の最も高い位置
+                const topY = p.bounds.min.y;
                 const isStable = Math.abs(p.velocity.y) < 0.25 && Math.abs(p.velocity.x) < 0.25;
 
                 if (timeSinceSpawn > 1500 && topY <= TARGET_Y && isStable) {
