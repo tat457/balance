@@ -5,73 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ぬいぐるみタワー 🧸</title>
     <style>
-        * {
-            box-sizing: border-box;
-        }
-        body {
-            margin: 0;
-            padding: 0;
-            background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%);
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            overflow: hidden;
-            user-select: none;
-            -webkit-user-select: none;
-        }
-        #ui {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            text-align: center;
-            pointer-events: none;
-            z-index: 10;
-            width: 100%;
-        }
-        h1 {
-            margin: 0;
-            color: #ff6b6b;
-            font-size: 28px;
-            text-shadow: 2px 2px 0px white;
-        }
-        p {
-            margin: 5px 0;
-            color: #4a4a4a;
-            font-weight: bold;
-            font-size: 14px;
-        }
-        #message-modal {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(255, 255, 255, 0.95);
-            padding: 30px 40px;
-            border-radius: 20px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-            text-align: center;
-            display: none;
-            z-index: 100;
-            min-width: 280px;
-        }
-        #message-modal h2 {
-            margin-top: 0;
-            font-size: 32px;
-        }
-        #message-modal button {
-            padding: 12px 28px;
-            font-size: 18px;
-            background: #ff6b6b;
-            color: white;
-            border: none;
-            border-radius: 25px;
-            cursor: pointer;
-            font-weight: bold;
-            box-shadow: 0 4px 10px rgba(255,107,107,0.4);
-            transition: transform 0.1s;
-        }
-        #message-modal button:active {
-            transform: scale(0.95);
-        }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 0; background: linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%); font-family: 'Helvetica Neue', Arial, sans-serif; overflow: hidden; user-select: none; -webkit-user-select: none; }
+        #ui { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); text-align: center; pointer-events: none; z-index: 10; width: 100%; }
+        h1 { margin: 0; color: #ff6b6b; font-size: 28px; text-shadow: 2px 2px 0px white; }
+        p { margin: 5px 0; color: #4a4a4a; font-weight: bold; font-size: 14px; }
+        #message-modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(255, 255, 255, 0.95); padding: 30px 40px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); text-align: center; display: none; z-index: 100; min-width: 280px; }
+        #message-modal h2 { margin-top: 0; font-size: 32px; }
+        #message-modal button { padding: 12px 28px; font-size: 18px; background: #ff6b6b; color: white; border: none; border-radius: 25px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 10px rgba(255,107,107,0.4); transition: transform 0.1s; }
+        #message-modal button:active { transform: scale(0.95); }
     </style>
     <!-- 物理エンジン Matter.js の読み込み -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
@@ -91,7 +33,7 @@
     </div>
 
     <script>
-        const { Engine, Render, Runner, Bodies, Composite, Events } = Matter;
+        const { Engine, Render, Runner, Bodies, Composite, Events, Body } = Matter;
 
         // 画面サイズの設定
         const width = window.innerWidth;
@@ -107,7 +49,7 @@
             options: {
                 width: width,
                 height: height,
-                wireframes: false,
+                wireframes: false, // 物理ボディの枠線を表示（デバッグ用: true）
                 background: 'transparent'
             }
         });
@@ -116,17 +58,93 @@
         const runner = Runner.create();
         Runner.run(runner, engine);
 
-        // 使用するぬいぐるみの絵文字リスト
-        const EMOJIS = ['🧸', '🐶', '🐱', '🐰', '🦁', '🐻', '🐼', '🦊', '🐨', '🐯', '👧', '👦'];
-        
-        // ゲームの設定値
+        // ------------------------------------------------------------------
+        // ぬいぐるみのデザインと物理設定（SVGと複合ボディ）
+        // ------------------------------------------------------------------
+
+        // SVGコードを画像オブジェクトに変換するユーティリティ
+        function svgToImage(svgString, width, height) {
+            const blob = new Blob([svgString], {type: 'image/svg+xml'});
+            const url = URL.createObjectURL(blob);
+            const img = new Image();
+            img.src = url;
+            return img;
+        }
+
+        // ぬいぐるみデータの定義
+        const PLUSHIE_DATA = {
+            bear: {
+                id: 'bear', color: '#8d6e63', face: '🐻',
+                svg: (color, face) => `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="130" viewBox="0 0 100 130"><rect x="15" y="45" width="70" height="75" rx="15" fill="${color}" stroke="#6d4c41" stroke-width="3"/><circle cx="50" cy="40" r="35" fill="${color}" stroke="#6d4c41" stroke-width="3"/><circle cx="20" cy="15" r="12" fill="${color}" stroke="#6d4c41" stroke-width="3"/><circle cx="80" cy="15" r="12" fill="${color}" stroke="#6d4c41" stroke-width="3"/><text x="50" y="55" font-size="45" text-anchor="middle" dominant-baseline="middle">${face}</text></svg>`,
+                image: null, width: 60, height: 78,
+                // 複合ボディの構成関数
+                createBody: (x, y, scale) => {
+                    const headRadius = 21 * scale;
+                    const bodyWidth = 42 * scale;
+                    const bodyHeight = 45 * scale;
+                    const head = Bodies.circle(x, y - 24 * scale, headRadius);
+                    const bodyRect = Bodies.rectangle(x, y + headRadius/2 + 6*scale, bodyWidth, bodyHeight, { chamfer: { radius: 9 * scale } }); // 角丸矩形
+                    return Body.create({ parts: [head, bodyRect], restitution: 0.1, friction: 0.9, density: 0.002 });
+                }
+            },
+            bunny: {
+                id: 'bunny', color: '#f8bbd0', face: '🐰',
+                svg: (color, face) => `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="150" viewBox="0 0 100 150"><rect x="15" y="65" width="70" height="75" rx="15" fill="${color}" stroke="#ec407a" stroke-width="3"/><circle cx="50" cy="60" r="35" fill="${color}" stroke="#ec407a" stroke-width="3"/><ellipse cx="25" cy="25" rx="12" ry="30" fill="${color}" stroke="#ec407a" stroke-width="3"/><ellipse cx="75" cy="25" rx="12" ry="30" fill="${color}" stroke="#ec407a" stroke-width="3"/><text x="50" y="75" font-size="45" text-anchor="middle" dominant-baseline="middle">${face}</text></svg>`,
+                image: null, width: 60, height: 90,
+                createBody: (x, y, scale) => {
+                    const headRadius = 21 * scale;
+                    const bodyWidth = 42 * scale;
+                    const bodyHeight = 45 * scale;
+                    const head = Bodies.circle(x, y - 18 * scale, headRadius);
+                    const bodyRect = Bodies.rectangle(x, y + headRadius/2 + 12*scale, bodyWidth, bodyHeight, { chamfer: { radius: 9 * scale } });
+                    return Body.create({ parts: [head, bodyRect], restitution: 0.1, friction: 0.9, density: 0.002 });
+                }
+            },
+            cat: {
+                id: 'cat', color: '#ffcc80', face: '🐱',
+                svg: (color, face) => `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="130" viewBox="0 0 100 130"><rect x="15" y="45" width="70" height="75" rx="15" fill="${color}" stroke="#ef6c00" stroke-width="3"/><circle cx="50" cy="40" r="35" fill="${color}" stroke="#ef6c00" stroke-width="3"/><polygon points="15,5 40,20 25,35" fill="${color}" stroke="#ef6c00" stroke-width="3"/><polygon points="85,5 60,20 75,35" fill="${color}" stroke="#ef6c00" stroke-width="3"/><text x="50" y="55" font-size="45" text-anchor="middle" dominant-baseline="middle">${face}</text></svg>`,
+                image: null, width: 60, height: 78,
+                createBody: (x, y, scale) => {
+                    const headRadius = 21 * scale;
+                    const bodyWidth = 42 * scale;
+                    const bodyHeight = 45 * scale;
+                    const head = Bodies.circle(x, y - 24 * scale, headRadius);
+                    const bodyRect = Bodies.rectangle(x, y + headRadius/2 + 6*scale, bodyWidth, bodyHeight, { chamfer: { radius: 9 * scale } });
+                    return Body.create({ parts: [head, bodyRect], restitution: 0.1, friction: 0.9, density: 0.002 });
+                }
+            },
+            dog: {
+                id: 'dog', color: '#f5f5f5', face: '🐶',
+                svg: (color, face) => `<svg xmlns="http://www.w3.org/2000/svg" width="100" height="130" viewBox="0 0 100 130"><rect x="15" y="45" width="70" height="75" rx="15" fill="${color}" stroke="#a1887f" stroke-width="3"/><circle cx="50" cy="40" r="35" fill="${color}" stroke="#a1887f" stroke-width="3"/><ellipse cx="15" cy="30" rx="12" ry="25" fill="#a1887f" stroke="#a1887f" stroke-width="3"/><ellipse cx="85" cy="30" rx="12" ry="25" fill="#a1887f" stroke="#a1887f" stroke-width="3"/><text x="50" y="55" font-size="45" text-anchor="middle" dominant-baseline="middle">${face}</text></svg>`,
+                image: null, width: 60, height: 78,
+                createBody: (x, y, scale) => {
+                    const headRadius = 21 * scale;
+                    const bodyWidth = 42 * scale;
+                    const bodyHeight = 45 * scale;
+                    const head = Bodies.circle(x, y - 24 * scale, headRadius);
+                    const bodyRect = Bodies.rectangle(x, y + headRadius/2 + 6*scale, bodyWidth, bodyHeight, { chamfer: { radius: 9 * scale } });
+                    return Body.create({ parts: [head, bodyRect], restitution: 0.1, friction: 0.9, density: 0.002 });
+                }
+            }
+        };
+
+        // 初期化: SVG画像を生成
+        Object.values(PLUSHIE_DATA).forEach(data => {
+            data.image = svgToImage(data.svg(data.color, data.face), 100, 150);
+        });
+
+        const PLUSHIE_KEYS = Object.keys(PLUSHIE_DATA);
+
+        // ------------------------------------------------------------------
+        // ゲームの設定
+        // ------------------------------------------------------------------
         const BASE_Y = height - 100;
         const TARGET_Y = 220; // クリア目標の高さ
-        let currentEmoji = EMOJIS[0];
+        let currentPlushieKey = PLUSHIE_KEYS[0];
         let dropX = width / 2;
         let dropSpeed = 3;
         let dropDirection = 1;
-        let dropY = 90; // スポーン位置
+        let dropY = 80; // スポーン位置
 
         let isGameOver = false;
         let isGameClear = false;
@@ -153,22 +171,26 @@
         function dropPlushie() {
             if (isGameOver || isGameClear) return;
 
-            const radius = 28 + Math.random() * 8;
+            const scale = 0.9 + Math.random() * 0.2; // サイズのランダム性
+            const data = PLUSHIE_DATA[currentPlushieKey];
             
-            const plushie = Bodies.circle(dropX, dropY, radius, {
-                restitution: 0.15, // 弾み具合
-                friction: 0.8,     // 摩擦
-                density: 0.002
-            });
+            // 複合ボディを作成
+            const plushieBody = data.createBody(dropX, dropY, scale);
 
-            plushie.customEmoji = currentEmoji;
-            plushie.customRadius = radius;
-            plushie.spawnTime = Date.now(); // 落下開始時刻を記録
+            // 描画用のカスタムデータを付与
+            plushieBody.customData = {
+                key: currentPlushieKey,
+                image: data.image,
+                width: data.width * scale,
+                height: data.height * scale,
+                spawnTime: Date.now()
+            };
 
-            Composite.add(world, plushie);
-            activePlushies.push(plushie);
+            Composite.add(world, plushieBody);
+            activePlushies.push(plushieBody);
 
-            currentEmoji = EMOJIS[Math.floor(Math.random() * EMOJIS.length)];
+            // 次のぬいぐるみをランダム決定
+            currentPlushieKey = PLUSHIE_KEYS[Math.floor(Math.random() * PLUSHIE_KEYS.length)];
         }
 
         // タップ / クリックイベント
@@ -199,17 +221,18 @@
             // 2. 落下前のプレビュー表示
             if (!isGameOver && !isGameClear) {
                 ctx.save();
-                ctx.font = '45px serif';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(currentEmoji, dropX, dropY);
+                const data = PLUSHIE_DATA[currentPlushieKey];
+                ctx.translate(dropX, dropY);
+                ctx.drawImage(data.image, -data.width / 2, -data.height / 2, data.width, data.height);
+                ctx.restore();
 
                 // 落下ガイド線
+                ctx.save();
                 ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
                 ctx.setLineDash([4, 4]);
                 ctx.lineWidth = 2;
                 ctx.beginPath();
-                ctx.moveTo(dropX, dropY + 25);
+                ctx.moveTo(dropX, dropY + data.height/2 + 5);
                 ctx.lineTo(dropX, height);
                 ctx.stroke();
                 ctx.restore();
@@ -219,15 +242,12 @@
             activePlushies.forEach(body => {
                 const { x, y } = body.position;
                 const angle = body.angle;
-                const radius = body.customRadius || 30;
+                const { image, width, height } = body.customData;
 
                 ctx.save();
                 ctx.translate(x, y);
                 ctx.rotate(angle);
-                ctx.font = `${radius * 1.7}px serif`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(body.customEmoji, 0, 0);
+                ctx.drawImage(image, -width / 2, -height / 2, width, height);
                 ctx.restore();
             });
         });
@@ -242,23 +262,24 @@
 
             // 【ゲームオーバー判定】画面下に落ちたら判定
             activePlushies.forEach(p => {
-                if (p.position.y > height + 50) {
+                if (p.position.y > height + 100) {
                     endGame(false);
                 }
             });
 
-            // 【クリア判定の修正ロジック】
-            // 落下直後（1.5秒以内）のものは判定対象から外す
+            // 【クリア判定】
             let hasReachedGoal = false;
 
             activePlushies.forEach(p => {
-                const timeSinceSpawn = now - p.spawnTime;
-                const topY = p.position.y - p.customRadius;
+                const timeSinceSpawn = now - p.customData.spawnTime;
                 
-                // 動きの静止判定（X軸・Y軸の速度が十分小さいか）
+                // 複合ボディ全体の高さを考慮した頂点の取得
+                const topY = p.bounds.min.y;
+                
+                // 動きの静止判定
                 const isStable = Math.abs(p.velocity.y) < 0.25 && Math.abs(p.velocity.x) < 0.25;
 
-                // 落としてから1.5秒以上経過 ＆ ゴールライン超え ＆ 静止している
+                // 落としてから1.5秒以上経過 ＆ 頂点がゴールライン超え ＆ 静止している
                 if (timeSinceSpawn > 1500 && topY <= TARGET_Y && isStable) {
                     hasReachedGoal = true;
                 }
@@ -285,27 +306,7 @@
                 isGameClear = true;
                 title.innerText = '🎉 クリア！ 🎉';
                 title.style.color = '#2ed573';
-                desc.innerText = 'すごーい！見事にタワーを完成させました！';
+                desc.innerText = 'すごーい！体も含めてしっかり積み上がりました！';
             } else {
                 isGameOver = true;
-                title.innerText = '💥 GAME OVER';
-                title.style.color = '#ff4757';
-                desc.innerText = 'あーっと！ぬいぐるみが落ちてしまいました…！';
-            }
-            modal.style.display = 'block';
-        }
-
-        // リセット処理
-        function resetGame() {
-            activePlushies.forEach(p => Composite.remove(world, p));
-            activePlushies = [];
-
-            isGameOver = false;
-            isGameClear = false;
-            clearTimer = 0;
-
-            document.getElementById('message-modal').style.display = 'none';
-        }
-    </script>
-</body>
-</html>
+                title.innerText = '💥 GAME OVER
